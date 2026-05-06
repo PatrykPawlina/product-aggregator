@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: product-aggregator
+  threads:
+    virtual:
+      enabled: true   # Java 21 Virtual Threads for Tomcat request handling
+
+server:
+  port: 8080
+
+aggregator:
+  timeouts:
+    catalog-ms: 200
+    pricing-ms: 300
+    availability-ms: 400
+    customer-ms: 250
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.kramp.productaggregator: DEBUG
