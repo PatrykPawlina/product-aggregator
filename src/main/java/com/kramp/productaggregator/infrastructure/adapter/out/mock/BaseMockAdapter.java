@@ -36,6 +36,7 @@ abstract class BaseMockAdapter {
         } else {
             long variance = (long) (baseMs * 0.2);
             latency = baseMs + rng.nextLong(-variance, variance + 1);
+            log.debug("[{}] Latency: {}ms", serviceName, latency);
         }
 
         try {

@@ -212,4 +212,57 @@ class ProductAggregatorServiceTest {
                 .isInstanceOf(CatalogServiceException.class)
                 .hasMessageContaining("Catalog Service unavailable");
     }
+
+    // Timeout behavior
+
+    @Test
+    @DisplayName("Catalog exceeds timeout - CatalogServiceException thrown")
+    void catalogExceedsTimeout_throwsCatalogServiceException() {
+        // Aggressive timeout for catalog - 50ms
+        var properties = new AggregatorProperties(
+                new AggregatorProperties.Timeouts(50, 500, 500, 500)
+        );
+        service = new ProductAggregatorService(
+                catalogPort, pricingPort, availabilityPort, customerPort,
+                Executors.newVirtualThreadPerTaskExecutor(),
+                properties
+        );
+
+        when(catalogPort.fetchCatalogData(PRODUCT_ID, MARKET)).thenAnswer(inv -> {
+            Thread.sleep(200);  // 200ms - exceeds 50ms timeout
+            return CATALOG;
+        });
+        when(pricingPort.fetchPricingData(any(), any(), any())).thenReturn(PRICING);
+        when(availabilityPort.fetchAvailability(any(), any())).thenReturn(AVAILABILITY);
+
+        assertThatThrownBy(() -> service.aggregate(PRODUCT_ID, MARKET, null))
+                .isInstanceOf(CatalogServiceException.class);
+    }
+
+    @Test
+    @DisplayName("Pricing exceeds timeout - returned as unavailable")
+    void pricingExceedsTimeout_returnsUnavailable() {
+        // Aggressive timeout - 50ms for pricing, generous for others
+        var properties = new AggregatorProperties(
+                new AggregatorProperties.Timeouts(500, 50, 500, 500)
+        );
+        service = new ProductAggregatorService(
+                catalogPort, pricingPort, availabilityPort, customerPort,
+                Executors.newVirtualThreadPerTaskExecutor(),
+                properties
+        );
+
+        when(catalogPort.fetchCatalogData(PRODUCT_ID, MARKET)).thenReturn(CATALOG);
+        when(availabilityPort.fetchAvailability(PRODUCT_ID, MARKET)).thenReturn(AVAILABILITY);
+        when(pricingPort.fetchPricingData(any(), any(), any())).thenAnswer(inv -> {
+            Thread.sleep(200);  // 200ms - exceeds 50ms timeout
+            return PRICING;
+        });
+
+        var result = service.aggregate(PRODUCT_ID, MARKET, null);
+
+        assertThat(result.catalog().name()).isEqualTo("Filtr hydrauliczny");
+        assertThat(result.pricing().available()).isFalse();
+        assertThat(result.pricing().unavailableReason()).isNotBlank();
+    }
 }
