@@ -3,6 +3,37 @@
 Kramp Backend Engineering Assignment.
 Backend service aggregating product data from multiple upstream services into a single, market-aware response.
 
+## 🚀 Live Demo
+
+The service is deployed on **Google Cloud Run** (region `europe-central2`, Warsaw)
+and is publicly accessible.
+
+**Base URL:** https://product-aggregator-512400011950.europe-central2.run.app
+
+```bash
+# Health check
+curl https://product-aggregator-512400011950.europe-central2.run.app/actuator/health
+
+# Anonymous - Polish market
+curl "https://product-aggregator-512400011950.europe-central2.run.app/api/v1/products/PROD-001/aggregate?market=pl-PL"
+
+# Dealer - Dutch market (15% discount)
+curl "https://product-aggregator-512400011950.europe-central2.run.app/api/v1/products/PROD-001/aggregate?market=nl-NL&customerId=D1234"
+```
+
+> ℹ️ The first request after inactivity may take a few seconds - Cloud Run cold start
+> with `--min-instances 0` (cost-optimized configuration).
+> Subsequent requests are served immediately.
+
+### Deployment stack
+
+| Layer           | Service                                                        |
+|-----------------|----------------------------------------------------------------|
+| Container build | Cloud Build (multi-stage `Dockerfile`, Maven + Temurin JRE 21) |
+| Image registry  | Artifact Registry (`europe-central2`)                          |
+| Runtime         | Cloud Run (managed, HTTPS, scale-to-zero, 0–3 instances)       |
+| Region          | `europe-central2` (Warsaw)                                     |
+
 ---
 
 ## How to Run
@@ -195,6 +226,10 @@ For Catalog this means immediate HTTP 503.
 - **Product validation** - unknown productId should return HTTP 404, not mock data
 - **gRPC endpoint** - assignment mentions it as a bonus; with Hexagonal
   Architecture it requires only a new adapter in `infrastructure/adapter/in/grpc`
+- **CI/CD pipeline** - GitHub Actions workflow on push to `main` running
+  `mvn verify` and then `gcloud run deploy --source .`, replacing manual deploys with auto-deployment to Cloud Run.
+- **Infrastructure as Code** - Terraform module describing the Cloud Run service, Artifact Registry repo,
+  and IAM bindings, making the deployment reproducible across environments (dev/staging/prod) and reviewable in PRs.
 
 ---
 
